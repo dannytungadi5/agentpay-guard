@@ -35,6 +35,10 @@ make fork        # terminal 1 is not needed: the script starts its own anvil
 bash demo/run_fork.sh
 ```
 
+## Live on Aevum testnet
+
+AgentPayGuard `0xd594B08D083A0f5661E9e49a8a99a7937f80fBa0` on chain 44005. The poisoned-invoice payment and the post-revoke payment are mined as failed transactions you can open on the explorer. All tx hashes: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). `web/index.html` is a small static dashboard that reads the mandate and events straight from the RPC.
+
 ## Tests
 
 ```
