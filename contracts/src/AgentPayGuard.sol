@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title AgentPayGuard
@@ -10,13 +12,15 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 ///         a total budget, a per-payment cap, an expiry, and a list of merchants it may pay.
 ///         Optional extras: a rolling 24h limit, and a human-approval step for payments above a
 ///         threshold (the agent can only request them; the owner releases them).
+///         Optional: require every payment to carry an invoice signed by the merchant (EIP-712),
+///         so the agent can only pay an invoice the merchant itself issued for that exact amount and order.
 ///         The owner can revoke at any time. The agent calls `pay`; funds go from the owner
 ///         straight to the merchant. If any rule fails, the whole call reverts and no money moves.
 /// @dev Why on chain: an LLM agent can be tricked by text it reads (a fake invoice, an email,
 ///      a web page). Rules in the agent's prompt can be talked around. Rules in a contract can't.
 ///      There is no admin, no owner of this contract, no upgrade path, and no way to move funds
 ///      except owner -> allowlisted merchant, within the mandate.
-contract AgentPayGuard {
+contract AgentPayGuard is EIP712 {
     using SafeERC20 for IERC20;
 
     struct Mandate {
@@ -52,6 +56,12 @@ contract AgentPayGuard {
     /// owner => orderId => payment waiting for approval
     mapping(address => mapping(bytes32 => Pending)) public pending;
 
+    /// owner => agent => agent must present a merchant-signed invoice (use payWithInvoice)
+    mapping(address => mapping(address => bool)) public requireSignedInvoice;
+    bytes32 public constant INVOICE_TYPEHASH =
+        keccak256("Invoice(address merchant,address payer,uint256 amount,bytes32 orderId,uint256 deadline)");
+
+    event InvoiceRuleSet(address indexed owner, address indexed agent, bool required);
     event ApprovalThresholdSet(address indexed owner, address indexed agent, uint256 threshold);
     event DailyLimitSet(address indexed owner, address indexed agent, uint256 limit);
     event PaymentPending(
@@ -77,10 +87,13 @@ contract AgentPayGuard {
     error OverBudget(uint256 amount, uint256 remaining);
     error OrderAlreadyPaid(bytes32 orderId);
     error BadExpiry();
+    error SignedInvoiceRequired();
+    error BadInvoiceSignature();
+    error InvoiceExpired();
     error OverDailyLimit(uint256 amount, uint256 left);
     error NotPending(bytes32 orderId);
 
-    constructor(IERC20 token_) {
+    constructor(IERC20 token_) EIP712("AgentPayGuard", "1") {
         if (address(token_) == address(0)) revert ZeroAddress();
         token = token_;
     }
@@ -107,6 +120,12 @@ contract AgentPayGuard {
     function setApprovalThreshold(address agent, uint128 threshold) external {
         approvalThreshold[msg.sender][agent] = threshold;
         emit ApprovalThresholdSet(msg.sender, agent, threshold);
+    }
+
+    /// @notice Require (or stop requiring) a merchant-signed invoice for every payment by `agent`.
+    function setRequireSignedInvoice(address agent, bool required) external {
+        requireSignedInvoice[msg.sender][agent] = required;
+        emit InvoiceRuleSet(msg.sender, agent, required);
     }
 
     /// @notice Max the agent may spend in any rolling 24h window. 0 = off.
@@ -145,11 +164,34 @@ contract AgentPayGuard {
 
     /// @notice The agent pays `merchant` from `owner`'s tokens, if every rule passes.
     function pay(address owner, address merchant, uint256 amount, bytes32 orderId) external {
-        Mandate storage m = _mandates[owner][msg.sender];
+        if (requireSignedInvoice[owner][msg.sender]) revert SignedInvoiceRequired();
+        _request(owner, msg.sender, merchant, amount, orderId);
+    }
+
+    /// @notice Pay an invoice the merchant signed (EIP-712: merchant, payer = owner, amount, orderId, deadline).
+    ///         Works for any agent; required when the owner turned on `requireSignedInvoice`.
+    function payWithInvoice(
+        address owner,
+        address merchant,
+        uint256 amount,
+        bytes32 orderId,
+        uint256 deadline,
+        bytes calldata signature
+    ) external {
+        if (block.timestamp > deadline) revert InvoiceExpired();
+        bytes32 digest = _hashTypedDataV4(
+            keccak256(abi.encode(INVOICE_TYPEHASH, merchant, owner, amount, orderId, deadline))
+        );
+        if (!SignatureChecker.isValidSignatureNow(merchant, digest, signature)) revert BadInvoiceSignature();
+        _request(owner, msg.sender, merchant, amount, orderId);
+    }
+
+    function _request(address owner, address agent, address merchant, uint256 amount, bytes32 orderId) internal {
+        Mandate storage m = _mandates[owner][agent];
         if (m.expiry == 0) revert NoMandate();
         if (m.revoked) revert Revoked();
         if (block.timestamp >= m.expiry) revert Expired();
-        if (!merchantAllowed[owner][msg.sender][merchant]) revert MerchantNotAllowed(merchant);
+        if (!merchantAllowed[owner][agent][merchant]) revert MerchantNotAllowed(merchant);
         if (amount == 0) revert ZeroAmount();
         if (amount > m.perTxCap) revert OverPerTxCap(amount, m.perTxCap);
         uint256 remaining_ = m.budget - m.spent;
@@ -157,14 +199,14 @@ contract AgentPayGuard {
         if (orderPaid[owner][orderId]) revert OrderAlreadyPaid(orderId);
         orderPaid[owner][orderId] = true;
 
-        uint128 th = approvalThreshold[owner][msg.sender];
+        uint128 th = approvalThreshold[owner][agent];
         if (th != 0 && amount > th) {
-            pending[owner][orderId] = Pending(msg.sender, merchant, uint128(amount), 1);
-            emit PaymentPending(owner, msg.sender, merchant, orderId, amount);
+            pending[owner][orderId] = Pending(agent, merchant, uint128(amount), 1);
+            emit PaymentPending(owner, agent, merchant, orderId, amount);
             return;
         }
-        _spend(owner, msg.sender, merchant, amount);
-        emit Paid(owner, msg.sender, merchant, orderId, amount);
+        _spend(owner, agent, merchant, amount);
+        emit Paid(owner, agent, merchant, orderId, amount);
     }
 
     /// @dev Budget, rolling-window and transfer. Used by direct payments and approved ones.

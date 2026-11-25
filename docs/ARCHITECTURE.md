@@ -25,10 +25,12 @@ Contract state:
 2. Normal payment: the agent reads an invoice, calls `pay`. Allowed, paid, event `Paid`.
 3. Attack: a poisoned invoice makes the agent pay an unlisted address. `MerchantNotAllowed`.
 4. Abuse by amount or replay: `OverPerTxCap`, `OverBudget`, `OrderAlreadyPaid`.
-5. Kill switch: owner calls `revoke(agent)`. Later calls fail with `Revoked`.
+5. Approval queue: above the owner's threshold the agent can only request; the owner approves or rejects.
+6. Signed invoices: the merchant signs (merchant, payer, amount, order id, deadline); the contract checks it, so the agent cannot change amount or payee.
+7. Kill switch: owner calls `revoke(agent)`. Later calls fail with `Revoked`.
 
 ## Technologies
-Solidity 0.8.24 (Shanghai EVM), OpenZeppelin v5.1.0, Foundry (13 tests incl. fuzz), Python 3 agent using Foundry `cast`, static dashboard (HTML, JSON-RPC), Aevum testnet (chain 44005), tUSD8 (ERC-20, 6 decimals). Based on Aevum Starter Kit (MIT, PQA Labs).
+Solidity 0.8.24 (Shanghai EVM), OpenZeppelin v5.1.0, Foundry (25 tests incl. fuzz), Python 3 agent using Foundry `cast`, static dashboard (HTML, JSON-RPC), Aevum testnet (chain 44005), tUSD8 (ERC-20, 6 decimals). Based on Aevum Starter Kit (MIT, PQA Labs).
 
 ## Threat model
 Protects against: a fooled or malicious agent, prompt injection, replayed invoices, runaway spend. Does not protect against: a compromised owner key, or an allowlisted merchant that is itself malicious.

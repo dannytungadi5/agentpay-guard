@@ -17,9 +17,11 @@ An agent that reads invoices and pays them can be tricked. A poisoned invoice sa
 - The owner sets a **merchant allowlist** per agent.
 - The agent calls `pay(owner, merchant, amount, orderId)`. The guard checks every rule, then moves tUSD8 straight from owner to merchant.
 - Optional: a rolling 24h limit, and an approval threshold. Payments above it are only *requested* by the agent and wait for the owner to `approvePending` (or `rejectPending`). Rules are checked again on approval.
+- Optional: require every payment to carry an invoice **signed by the merchant** (EIP-712: merchant, payer, amount, order id, deadline). A tampered amount, a wrong payee, an expired invoice or another owner's invoice all fail. Use `payWithInvoice`.
+- Many agents per owner, each with its own limits.
 - The owner can `revoke(agent)` at any time. There is no admin, no upgrade, no fee.
 
-Each failure is a specific custom error: `MerchantNotAllowed`, `OverPerTxCap`, `OverBudget`, `Expired`, `Revoked`, `NoMandate`, `OverDailyLimit`, `NotPending`, `OrderAlreadyPaid` (an order id can be paid once, so a replayed invoice fails).
+Each failure is a specific custom error: `MerchantNotAllowed`, `OverPerTxCap`, `OverBudget`, `Expired`, `Revoked`, `NoMandate`, `OverDailyLimit`, `NotPending`, `SignedInvoiceRequired`, `BadInvoiceSignature`, `InvoiceExpired`, `OrderAlreadyPaid` (an order id can be paid once, so a replayed invoice fails).
 
 ## Demo: a poisoned invoice cannot move money
 
@@ -38,7 +40,7 @@ bash demo/run_fork.sh
 
 ## Live on Aevum testnet
 
-AgentPayGuard `0x504F305AcdAeF6BecA5d249554B7479261c5544a` on chain 44005. The poisoned-invoice payment and the post-revoke payment are mined as failed transactions you can open on the explorer. All tx hashes: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). `web/index.html` is a small static dashboard that reads the mandate and events straight from the RPC.
+AgentPayGuard `0x8362aD645e5239eCb11084b9444727C80C7F2b0d` on chain 44005. The poisoned-invoice payment and the post-revoke payment are mined as failed transactions you can open on the explorer. All tx hashes: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Live dashboard with a read-only "try it yourself" simulator (it asks the live contract through `eth_call`): https://dannytungadi5.github.io/agentpay-guard/ (source `docs/index.html`). Testnet demo of v3: `demo/run_testnet_v3.sh`. Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Tests
 
@@ -46,7 +48,7 @@ AgentPayGuard `0x504F305AcdAeF6BecA5d249554B7479261c5544a` on chain 44005. The p
 cd contracts && forge test -vv --match-contract AgentPayGuardTest
 ```
 
-19 tests, including each attack above, budget exhaustion across several payments, expiry, and a fuzz test that no sequence of payments can exceed the budget or the per-payment cap.
+25 tests, including each attack above, budget exhaustion across several payments, expiry, and a fuzz test that no sequence of payments can exceed the budget or the per-payment cap.
 
 ## Deploy to Aevum testnet
 

@@ -214,4 +214,95 @@ contract AgentPayGuardTest is Test {
         guard.pay(owner, shop, 10e6, O2);
         assertEq(token.balanceOf(shop), 30e6);
     }
+
+    // ---- merchant-signed invoices ----
+
+    uint256 constant SHOP_PK = 0xA11CE;
+
+    function _domainSeparator() internal view returns (bytes32) {
+        (, string memory name, string memory version, uint256 chainId, address vc,,) = guard.eip712Domain();
+        return keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(bytes(name)),
+                keccak256(bytes(version)),
+                chainId,
+                vc
+            )
+        );
+    }
+
+    function _sign(uint256 pk, address merchant, address payer, uint256 amount, bytes32 orderId, uint256 deadline)
+        internal
+        view
+        returns (bytes memory)
+    {
+        bytes32 structHash =
+            keccak256(abi.encode(guard.INVOICE_TYPEHASH(), merchant, payer, amount, orderId, deadline));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _domainSeparator(), structHash));
+        (uint8 v, bytes32 r, bytes32 sg) = vm.sign(pk, digest);
+        return abi.encodePacked(r, sg, v);
+    }
+
+    function _enableSigned() internal returns (address signedShop) {
+        signedShop = vm.addr(SHOP_PK);
+        vm.startPrank(owner);
+        guard.setMerchant(agent, signedShop, true);
+        guard.setRequireSignedInvoice(agent, true);
+        vm.stopPrank();
+    }
+
+    function test_signedRequired_plainPayReverts() public {
+        address ss = _enableSigned();
+        vm.prank(agent);
+        vm.expectRevert(AgentPayGuard.SignedInvoiceRequired.selector);
+        guard.pay(owner, ss, 5e6, O1);
+    }
+
+    function test_signedInvoice_paysWithValidSignature() public {
+        address ss = _enableSigned();
+        uint256 dl = block.timestamp + 1 hours;
+        bytes memory sig = _sign(SHOP_PK, ss, owner, 5e6, O1, dl);
+        vm.prank(agent);
+        guard.payWithInvoice(owner, ss, 5e6, O1, dl, sig);
+        assertEq(token.balanceOf(ss), 5e6);
+    }
+
+    function test_signedInvoice_tamperedAmountReverts() public {
+        address ss = _enableSigned();
+        uint256 dl = block.timestamp + 1 hours;
+        bytes memory sig = _sign(SHOP_PK, ss, owner, 5e6, O1, dl);
+        vm.prank(agent);
+        vm.expectRevert(AgentPayGuard.BadInvoiceSignature.selector);
+        guard.payWithInvoice(owner, ss, 9e6, O1, dl, sig);
+    }
+
+    function test_signedInvoice_signedByAttackerReverts() public {
+        address ss = _enableSigned();
+        uint256 dl = block.timestamp + 1 hours;
+        bytes memory sig = _sign(0xBAD, ss, owner, 5e6, O1, dl);
+        vm.prank(agent);
+        vm.expectRevert(AgentPayGuard.BadInvoiceSignature.selector);
+        guard.payWithInvoice(owner, ss, 5e6, O1, dl, sig);
+    }
+
+    function test_signedInvoice_expiredReverts() public {
+        address ss = _enableSigned();
+        uint256 dl = block.timestamp + 1 hours;
+        bytes memory sig = _sign(SHOP_PK, ss, owner, 5e6, O1, dl);
+        vm.warp(dl + 1);
+        vm.prank(agent);
+        vm.expectRevert(AgentPayGuard.InvoiceExpired.selector);
+        guard.payWithInvoice(owner, ss, 5e6, O1, dl, sig);
+    }
+
+    function test_signedInvoice_cannotBeReplayedForAnotherOwner() public {
+        address ss = _enableSigned();
+        uint256 dl = block.timestamp + 1 hours;
+        bytes memory sig = _sign(SHOP_PK, ss, owner, 5e6, O1, dl);
+        address other = makeAddr("other");
+        vm.prank(agent);
+        vm.expectRevert(AgentPayGuard.BadInvoiceSignature.selector);
+        guard.payWithInvoice(other, ss, 5e6, O1, dl, sig);
+    }
 }
