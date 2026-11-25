@@ -1,27 +1,27 @@
 # Aevum testnet deployment (chain 44005)
 
-Explorer: https://explorer-test.qday.info
+Current contract (v2, with approval queue and 24h limit): `0x504F305AcdAeF6BecA5d249554B7479261c5544a`
+https://explorer-test.qday.info/address/0x504F305AcdAeF6BecA5d249554B7479261c5544a
 
-| Item | Address / tx |
-|---|---|
-| AgentPayGuard | `0xd594B08D083A0f5661E9e49a8a99a7937f80fBa0` |
-| tUSD8 | `0x456569838f1d43009A91ebA4263147Afd7233483` |
-| Owner | `0x811B9707A74e43E6bF22dcCaa9dfFB3286492402` |
-| Agent | `0x8C0f9364e8D3ac76b9E9C288b35514bad4f7CC17` |
-| Shop (allowed) | `0x3BEcCb75b1F6f0066FAf1641d4dE43FEa8f03d1B` |
-| Attacker (not allowed) | `0xEc78a54eB34f35a610382617929876d3e2Bdd1c4` |
-
-Mandate: budget 3 tUSD8, cap 1.5 per payment, one allowed shop.
+Mandate: budget 3 tUSD8, per-payment cap 2, owner approval above 1, 24h limit 2.5, one allowed shop.
 
 | Step | Result | Tx |
 |---|---|---|
-| Owner approves guard | ok | `0x79b3cd9f862c5123b7dfac476977d0cd0894e7c23354f4473dd946435c8f80d0` |
-| setMandate | ok | `0x6f01a002ef0449ac4144e3b13fa4c3587bd7d0f5b1a1664ef6a104fa4a0744ea` |
-| setMerchant (shop) | ok | `0xd9a6c603917089314ca55bffb173cd673410c65b1b9119badc62c25e475781d0` |
-| Honest invoice, 1.2 to shop | PAID | `0x59e33e4271468d2c1fef2a8b515e7291044ec3ae248ccdc30cd61c06ad462667` |
-| Poisoned invoice, 2.5 to attacker | REVERTED (MerchantNotAllowed) | `0x0e167b9082822d0e289e2b0203f3ad6b5dc37153d0b2e14a5d495c2ff37783d7` |
-| Owner revokes | ok | `0x7b420fe0c0ab8067ec87009158b2a9d3d0c8a769828ccf9357e85a5fe59a5bc2` |
-| Honest invoice after revoke | REVERTED (Revoked) | `0xafb8f849bc3be23d2838eb345528791aeb8623190cb7da98ac7ca2166e1f35b2` |
+| approve | ok | `0x214611495b486984f9f809a4c59cdb0a94a74eaf82de812e8f4822b16fab5c99` |
+| setMandate | ok | `0xa50c462c749576e7ae5dc6a5dda9b201134dbef3e512773d5e756c1528538e9a` |
+| setMerchant | ok | `0xb47a5760c530632217dc778c4b4bacc275d4650d8a3d64eb6cdf699495c45bfe` |
+| setApprovalThreshold | ok | `0xc818f2a3599b7f62ad7f8fa411482f3a3630dc910cf277dacd5bd0e67516bcc2` |
+| setDailyLimit | ok | `0x515f708b761bf0aee13836bcc1d0a2bb8318009259a5b82021d533fe475608da` |
+| Honest invoice 0.8 | PAID | `0xd70628eae44bb3465954c2cf5f0c6410e580f4938b2073bd7af0987723bd800f` |
+| Poisoned invoice 2.0 to attacker | REVERTED MerchantNotAllowed | `0xc9803b4c82c9f9cd2f1ca666867f8231ad87a5ba4f2b9b21fbcbcc3ec66abd2b` |
+| Honest invoice 1.5 (above threshold) | PENDING, no money moved | `0xa3c02970cffc67cb092358fba5ad44d0a39d1129d37f6b9c704c8cd64e28d1da` |
+| Owner approves 1.5 | PAID | `0x66917e68233bb6f796e90e51c118fdbc9e849453ed12c2ac2663befe9520f111` |
+| Honest invoice 0.5 | REVERTED OverDailyLimit | `0x9b73ee9feb13a2447bc58eb8a77a35af560ca24224d9f2a12dbe3c22f68099c3` |
+| Owner revokes | ok | `0x020a1875b1024454454bdd16baabcfff6ed09897d3350d0a867c23e15cbc47bd` |
 
-Final balances: shop 1.2 tUSD8, attacker 0.
-These are testnet wallets with no value.
+Final balances: shop 3.5 tUSD8 (incl. 1.2 from the v1 run), attacker 0.
+
+## v1 (superseded): `0xd594B08D083A0f5661E9e49a8a99a7937f80fBa0`
+Same checks without the approval queue and daily limit. Its demo (honest 1.2 paid, poisoned 2.5 reverted, revoke, post-revoke revert) is on the explorer.
+
+Owner `0x811B9707A74e43E6bF22dcCaa9dfFB3286492402`, agent `0x8C0f9364e8D3ac76b9E9C288b35514bad4f7CC17`, shop `0x3BEcCb75b1F6f0066FAf1641d4dE43FEa8f03d1B`, attacker `0xEc78a54eB34f35a610382617929876d3e2Bdd1c4`. Testnet wallets with no value.

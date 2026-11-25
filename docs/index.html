@@ -36,24 +36,27 @@ code{font:12px ui-monospace,monospace;color:var(--mu);word-break:break-all}
 <div class="card c4"><div class="lbl">Budget left <span class="pill neu" id="mpill">…</span></div>
 <div class="ring" id="ring" style="--p:0"><i id="pct">…</i></div><div class="num"><span id="rem">…</span> <small>of <span id="bud">…</span> tUSD8</small></div></div>
 <div class="card c4"><div class="lbl">Per-payment cap</div><div class="num"><span id="cap">…</span> <small>tUSD8</small></div>
-<div class="lbl" style="margin-top:14px">Allowed shops</div><div class="num" style="font-size:26px">1</div>
-<div class="lbl" style="margin-top:14px">Expires</div><code id="exp">…</code></div>
+<div class="lbl" style="margin-top:14px">Owner approval above</div><div class="num" style="font-size:26px"><span id="th">…</span> <small>tUSD8</small></div><div class="lbl" style="margin-top:14px">24h limit</div><div class="num" style="font-size:26px"><span id="dl">…</span> <small>tUSD8</small></div>
+<code id="exp">…</code></div>
 <div class="card c4 dark"><div class="lbl">Poisoned invoice</div><div class="num" style="color:#ff8a72">Blocked</div>
-<p style="color:#c9c9d2;margin:6px 0 12px">The invoice told the agent to pay 2.5 tUSD8 to an attacker. The agent obeyed. The contract refused with <b>MerchantNotAllowed</b>. Attacker balance: 0.</p>
-<a style="color:#fff;font:12px ui-monospace,monospace" href="https://explorer-test.qday.info/tx/0x0e167b9082822d0e289e2b0203f3ad6b5dc37153d0b2e14a5d495c2ff37783d7">view failed tx →</a></div>
+<p style="color:#c9c9d2;margin:6px 0 12px">The invoice told the agent to pay 2.0 tUSD8 to an attacker. The agent obeyed. The contract refused with <b>MerchantNotAllowed</b>. Attacker balance: 0.</p>
+<a style="color:#fff;font:12px ui-monospace,monospace" href="https://explorer-test.qday.info/tx/0xc9803b4c82c9f9cd2f1ca666867f8231ad87a5ba4f2b9b21fbcbcc3ec66abd2b">view failed tx →</a></div>
 <div class="card c7"><div class="lbl">What happened on chain</div>
-<div class="step"><div class="t">Owner sets mandate<small>budget 3, cap 1.5, shop allowed</small></div><span class="pill ok">ok</span><a href="https://explorer-test.qday.info/tx/0x6f01a002ef0449ac4144e3b13fa4c3587bd7d0f5b1a1664ef6a104fa4a0744ea">0x6f01a0…</a></div>
-<div class="step"><div class="t">Honest invoice, 1.2 to shop<small>inside every limit</small></div><span class="pill ok">paid</span><a href="https://explorer-test.qday.info/tx/0x59e33e4271468d2c1fef2a8b515e7291044ec3ae248ccdc30cd61c06ad462667">0x59e33e…</a></div>
-<div class="step"><div class="t">Poisoned invoice, 2.5 to attacker<small>not on the allowlist</small></div><span class="pill bad">reverted</span><a href="https://explorer-test.qday.info/tx/0x0e167b9082822d0e289e2b0203f3ad6b5dc37153d0b2e14a5d495c2ff37783d7">0x0e167b…</a></div>
-<div class="step"><div class="t">Owner revokes the agent<small>one call, any time</small></div><span class="pill ok">ok</span><a href="https://explorer-test.qday.info/tx/0x7b420fe0c0ab8067ec87009158b2a9d3d0c8a769828ccf9357e85a5fe59a5bc2">0x7b420f…</a></div>
-<div class="step"><div class="t">Honest invoice after revoke<small>agent has no authority left</small></div><span class="pill bad">reverted</span><a href="https://explorer-test.qday.info/tx/0xafb8f849bc3be23d2838eb345528791aeb8623190cb7da98ac7ca2166e1f35b2">0xafb8f8…</a></div></div>
+<div class="step"><div class="t">Owner sets mandate<small>budget 3, per-payment cap 2, shop allowed</small></div><span class="pill ok">ok</span><a href="https://explorer-test.qday.info/tx/0xa50c462c749576e7ae5dc6a5dda9b201134dbef3e512773d5e756c1528538e9a">0xa50c46…</a></div>
+<div class="step"><div class="t">Honest invoice, 0.8 to shop<small>below the approval threshold, paid directly</small></div><span class="pill ok">paid</span><a href="https://explorer-test.qday.info/tx/0xd70628eae44bb3465954c2cf5f0c6410e580f4938b2073bd7af0987723bd800f">0xd70628…</a></div>
+<div class="step"><div class="t">Poisoned invoice, 2.0 to attacker<small>not on the allowlist</small></div><span class="pill bad">reverted</span><a href="https://explorer-test.qday.info/tx/0xc9803b4c82c9f9cd2f1ca666867f8231ad87a5ba4f2b9b21fbcbcc3ec66abd2b">0xc9803b…</a></div>
+<div class="step"><div class="t">Honest invoice, 1.5 to shop<small>above 1.0: the agent can only request it</small></div><span class="pill neu">waiting for owner</span><a href="https://explorer-test.qday.info/tx/0xa3c02970cffc67cb092358fba5ad44d0a39d1129d37f6b9c704c8cd64e28d1da">0xa3c029…</a></div>
+<div class="step"><div class="t">Owner approves the 1.5 payment<small>human in the loop, rules checked again</small></div><span class="pill ok">paid</span><a href="https://explorer-test.qday.info/tx/0x66917e68233bb6f796e90e51c118fdbc9e849453ed12c2ac2663befe9520f111">0x66917e…</a></div>
+<div class="step"><div class="t">Honest invoice, 0.5 to shop<small>would pass the budget but not the 24h limit (2.5)</small></div><span class="pill bad">reverted</span><a href="https://explorer-test.qday.info/tx/0x9b73ee9feb13a2447bc58eb8a77a35af560ca24224d9f2a12dbe3c22f68099c3">0x9b73ee…</a></div>
+<div class="step"><div class="t">Owner revokes the agent<small>one call, any time</small></div><span class="pill ok">ok</span><a href="https://explorer-test.qday.info/tx/0x020a1875b1024454454bdd16baabcfff6ed09897d3350d0a867c23e15cbc47bd">0x020a18…</a></div>
+</div>
 <div class="card c5"><div class="lbl">How it works</div>
-<p><b>1.</b> Owner keeps the funds and approves the guard once.<br><b>2.</b> Owner sets budget, per-payment cap, expiry and the shops the agent may pay.<br><b>3.</b> The agent can only call <code>pay()</code>. Every rule is checked on chain.<br><b>4.</b> Each order id pays once. No admin, no fee.</p>
-<div class="cta"><code id="g">0xd594B08D083A0f5661E9e49a8a99a7937f80fBa0</code></div>
-<a class="chip" style="display:inline-block;margin-top:12px;text-decoration:none" href="https://explorer-test.qday.info/address/0xd594B08D083A0f5661E9e49a8a99a7937f80fBa0">Open on explorer</a></div>
+<p><b>1.</b> Owner keeps the funds and approves the guard once.<br><b>2.</b> Owner sets budget, per-payment cap, 24h limit, expiry and the shops the agent may pay.<br><b>3.</b> Small payments go through. Big ones wait for the owner to approve.<br><b>4.</b> Each order id pays once. No admin, no fee.</p>
+<div class="cta"><code id="g">0x504F305AcdAeF6BecA5d249554B7479261c5544a</code></div>
+<a class="chip" style="display:inline-block;margin-top:12px;text-decoration:none" href="https://explorer-test.qday.info/address/0x504F305AcdAeF6BecA5d249554B7479261c5544a">Open on explorer</a></div>
 </div></div>
 <script>
-const RPC="https://rpc-test.qday.info",G="0xd594B08D083A0f5661E9e49a8a99a7937f80fBa0",
+const RPC="https://rpc-test.qday.info",G="0x504F305AcdAeF6BecA5d249554B7479261c5544a",
 O="0x811B9707A74e43E6bF22dcCaa9dfFB3286492402",A="0x8C0f9364e8D3ac76b9E9C288b35514bad4f7CC17";
 const rpc=(m,p)=>fetch(RPC,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:m,params:p})}).then(r=>r.json()).then(j=>j.result);
 const pad=a=>a.slice(2).toLowerCase().padStart(64,"0"),u=h=>Number(BigInt(h))/1e6,$=i=>document.getElementById(i);
@@ -64,6 +67,8 @@ const w=m.slice(2).match(/.{64}/g),bud=u("0x"+w[0]),rem=u(r),rev=BigInt("0x"+w[4
 $("bud").textContent=bud.toFixed(2);$("rem").textContent=rem.toFixed(2);$("cap").textContent=u("0x"+w[2]).toFixed(2);
 const p=bud?Math.round(rem/bud*100):0;$("ring").style.setProperty("--p",p);$("pct").textContent=p+"%";
 $("exp").textContent=new Date(Number(BigInt("0x"+w[3]))*1000).toLocaleString();
+const th=await rpc("eth_call",[{to:G,data:"0x7d186aa5"+pad(O)+pad(A)},"latest"]);const dl=await rpc("eth_call",[{to:G,data:"0x87dc537d"+pad(O)+pad(A)},"latest"]);
+$("th").textContent=u(th).toFixed(2);$("dl").textContent=u(dl).toFixed(2);
 const mp=$("mpill");mp.textContent=rev?"revoked":"active";mp.className="pill "+(rev?"bad":"ok");
 }catch(e){$("mpill").textContent="offline"}})();
 </script></body></html>

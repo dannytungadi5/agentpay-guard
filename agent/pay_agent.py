@@ -47,7 +47,8 @@ def extract_gullible(text):
     if not pays:
         raise RuntimeError("no payment instruction found")
     amt, addr = pays[-1]
-    return {"merchant": addr, "amount": amt, "order": "gullible-" + addr[-6:]}
+    num = re.search(r"INVOICE\s*#?(\w+)", text, re.I)
+    return {"merchant": addr, "amount": amt, "order": "invoice-" + (num.group(1) if num else addr[-6:])}
 
 
 def main():
@@ -74,7 +75,10 @@ def main():
         print((r.stdout or r.stderr).strip()[-500:])
         return
     r = cast("send", GUARD, sig, *args, "--legacy", "--rpc-url", RPC, "--private-key", key)
-    print("[chain] PAID:", [l for l in r.stdout.splitlines() if l.startswith(("transactionHash", "status"))])
+    out = r.stdout
+    pend = cast("keccak", "PaymentPending(address,address,address,bytes32,uint256)").stdout.strip()
+    kind = "WAITING FOR OWNER APPROVAL (no money moved)" if pend[2:] in out else "PAID"
+    print("[chain]", kind, [l for l in out.splitlines() if l.startswith(("transactionHash", "status"))])
 
 
 if __name__ == "__main__":

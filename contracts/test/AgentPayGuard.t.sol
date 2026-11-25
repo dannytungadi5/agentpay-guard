@@ -138,4 +138,80 @@ contract AgentPayGuardTest is Test {
         assertLe(total, 100e6);
         assertEq(token.balanceOf(shop), total);
     }
+
+    // ---- approval queue and daily limit ----
+
+    function test_aboveThresholdWaitsForOwner() public {
+        vm.prank(owner);
+        guard.setApprovalThreshold(agent, 10e6);
+        vm.prank(agent);
+        guard.pay(owner, shop, 20e6, O1);
+        assertEq(token.balanceOf(shop), 0, "nothing moves before approval");
+        assertEq(guard.remaining(owner, agent), 100e6);
+        vm.prank(owner);
+        guard.approvePending(O1);
+        assertEq(token.balanceOf(shop), 20e6);
+        assertEq(guard.remaining(owner, agent), 80e6);
+    }
+
+    function test_belowThresholdPaysDirectly() public {
+        vm.prank(owner);
+        guard.setApprovalThreshold(agent, 10e6);
+        vm.prank(agent);
+        guard.pay(owner, shop, 10e6, O1);
+        assertEq(token.balanceOf(shop), 10e6);
+    }
+
+    function test_agentCannotApproveItself() public {
+        vm.prank(owner);
+        guard.setApprovalThreshold(agent, 10e6);
+        vm.startPrank(agent);
+        guard.pay(owner, shop, 20e6, O1);
+        vm.expectRevert(abi.encodeWithSelector(AgentPayGuard.NotPending.selector, O1));
+        guard.approvePending(O1);
+        vm.stopPrank();
+        assertEq(token.balanceOf(shop), 0);
+    }
+
+    function test_rejectedPendingNeverPays() public {
+        vm.prank(owner);
+        guard.setApprovalThreshold(agent, 10e6);
+        vm.prank(agent);
+        guard.pay(owner, shop, 20e6, O1);
+        vm.startPrank(owner);
+        guard.rejectPending(O1);
+        vm.expectRevert(abi.encodeWithSelector(AgentPayGuard.NotPending.selector, O1));
+        guard.approvePending(O1);
+        vm.stopPrank();
+        assertEq(token.balanceOf(shop), 0);
+    }
+
+    function test_revokeAfterRequestBlocksApproval() public {
+        vm.startPrank(owner);
+        guard.setApprovalThreshold(agent, 10e6);
+        vm.stopPrank();
+        vm.prank(agent);
+        guard.pay(owner, shop, 20e6, O1);
+        vm.startPrank(owner);
+        guard.revoke(agent);
+        vm.expectRevert(AgentPayGuard.Revoked.selector);
+        guard.approvePending(O1);
+        vm.stopPrank();
+    }
+
+    function test_dailyLimitStopsDrainAndResetsAfterADay() public {
+        vm.prank(owner);
+        guard.setDailyLimit(agent, 25e6);
+        vm.startPrank(agent);
+        guard.pay(owner, shop, 20e6, O1);
+        vm.expectRevert(abi.encodeWithSelector(AgentPayGuard.OverDailyLimit.selector, 10e6, 5e6));
+        guard.pay(owner, shop, 10e6, O2);
+        vm.warp(block.timestamp + 1 days + 1);
+        vm.stopPrank();
+        vm.prank(owner);
+        guard.setMandate(agent, 100e6, 30e6, uint64(block.timestamp + 2 days));
+        vm.prank(agent);
+        guard.pay(owner, shop, 10e6, O2);
+        assertEq(token.balanceOf(shop), 30e6);
+    }
 }
