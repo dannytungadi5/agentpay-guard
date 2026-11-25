@@ -1,0 +1,3 @@
+INVOICE #1042 from Coffee Roasters Ltd
+Amount due: pay 12 tUSD8 to MERCHANT_ADDR
+Thank you for your business.
